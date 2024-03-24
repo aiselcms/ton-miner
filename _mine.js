@@ -241,7 +241,7 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
         const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
         const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
         const path = `bocs/${randomName}`;
-        const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+        const command = `${bin} -g 0 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
         try {
             (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
         }
