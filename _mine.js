@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 const arg_1 = __importDefault(require("arg"));
-const givers_1 = require("./givers");
+const _givers_1 = require("./_givers");
 const ton_1 = require("@ton/ton");
 const ton_lite_client_1 = require("ton-lite-client");
 const core_1 = require("@ton/core");
@@ -64,7 +64,7 @@ const args = (0, arg_1.default)({
     "-c": String, // blockchain config
 });
 /* Выбор гиверов */
-let givers = givers_1.givers10000;
+let givers = _givers_1.givers10000;
 if (args["--givers"]) {
     const val = args["--givers"];
     const allowed = [100, 1000, 10000];
@@ -73,15 +73,15 @@ if (args["--givers"]) {
     }
     switch (val) {
         case 100:
-            givers = givers_1.givers100;
+            givers = _givers_1.givers100;
             console.log("Using givers 100");
             break;
         case 1000:
-            givers = givers_1.givers1000;
+            givers = _givers_1.givers1000;
             console.log("Using givers 1 000");
             break;
         case 10000:
-            givers = givers_1.givers10000;
+            givers = _givers_1.givers10000;
             console.log("Using givers 10 000");
             break;
     }
@@ -106,7 +106,7 @@ if (args["--bin"]) {
 console.log("Using bin", bin);
 /* Количества GPU и таймаут */
 const gpus = args["--gpu-count"] || 1;
-const timeout = (_a = args["--timeout"]) !== null && _a !== void 0 ? _a : 5;
+const timeout = (_a = args["--timeout"]) !== null && _a !== void 0 ? _a : 5000;
 console.log("Using GPUs count", gpus);
 console.log("Using timeout", timeout);
 const delay = (ms) => __awaiter(void 0, void 0, void 0, function* () {
@@ -239,49 +239,27 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
     while (go) {
         const giverAddress = bestGiver.address;
         const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
-        if (seed === lastMinedSeed) {
-            updateBestGivers();
-            yield delay(200);
-            continue;
+        const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString("hex") + ".boc";
+        const path = `bocs/${randomName}`;
+        const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+        try {
+            (0, child_process_1.execSync)(command, { encoding: "utf-8", stdio: "pipe" }); // the default is 'buffer'
         }
-        let handlers = [];
-        const mined = yield new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
-            let rest = gpus;
-            for (let i = 0; i < gpus; i++) {
-                const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString("hex") + ".boc";
-                const path = `bocs/${randomName}`;
-                const command = `-g ${i} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
-                const procid = (0, child_process_1.spawn)(bin, command.split(" "), { stdio: "pipe" });
-                handlers.push(procid);
-                procid.on("exit", () => {
-                    let mined = undefined;
-                    try {
-                        const exists = fs_1.default.existsSync(path);
-                        if (exists) {
-                            mined = fs_1.default.readFileSync(path);
-                            resolve(mined);
-                            lastMinedSeed = seed;
-                            fs_1.default.rmSync(path);
-                            for (const handle of handlers) {
-                                handle.kill("SIGINT");
-                            }
-                        }
-                    }
-                    catch (e) {
-                        console.log("not mined", e);
-                    }
-                    finally {
-                        if (--rest === 0) {
-                            resolve(undefined);
-                        }
-                    }
-                });
-            }
-        }));
+        catch (e) {
+            console.log(e);
+        }
+        let mined = undefined;
+        try {
+            mined = fs_1.default.readFileSync(path);
+            fs_1.default.rmSync(path);
+        }
+        catch (e) {
+            // console.log(e);
+        }
         if (!mined) {
             console.log(`${new Date()}: not mined`, seed, i++);
         }
-        if (mined) {
+        else {
             const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
             if (newSeed !== seed) {
                 console.log("Mined already too late seed");

@@ -1,10 +1,10 @@
 import arg from "arg";
-import { givers100, givers1000, givers10000 } from "./givers";
+import { givers100, givers1000, givers10000 } from "./_givers";
 import { TonClient4 } from "@ton/ton";
 import { LiteClient, LiteRoundRobinEngine, LiteSingleEngine } from "ton-lite-client";
 import { Address, Cell, parseTuple, TupleReader } from "@ton/core";
 import { getSecureRandomBytes, mnemonicToWalletKey } from "@ton/crypto";
-import { ChildProcess, spawn } from "child_process";
+import { execSync } from "child_process";
 import { Wallets } from 'ton3-contracts';
 import * as ton3 from 'ton3-core';
 import fs from "fs";
@@ -73,7 +73,7 @@ console.log("Using bin", bin);
 
 /* Количества GPU и таймаут */
 const gpus = args["--gpu-count"] || 1;
-const timeout = args["--timeout"] ?? 5;
+const timeout = args["--timeout"] ?? 5000;
 
 console.log("Using GPUs count", gpus);
 console.log("Using timeout", timeout);
@@ -246,58 +246,32 @@ const main = async () => {
   while (go) {
     const giverAddress = bestGiver.address;
     const [seed, complexity, iterations] = await getPowInfo(
-      liteClient,
-      Address.parse(giverAddress)
+        liteClient,
+        Address.parse(giverAddress)
     );
 
-    if (seed === lastMinedSeed) {
-      updateBestGivers();
-      await delay(200);
-      continue;
+    const randomName = (await getSecureRandomBytes(8)).toString("hex") + ".boc";
+    const path = `bocs/${randomName}`;
+
+    const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+
+    try {
+      execSync(command, { encoding: "utf-8", stdio: "pipe" }); // the default is 'buffer'
+    } catch (e) {
+      console.log(e);
     }
 
-    let handlers: ChildProcess[] = [];
-    
-    const mined: Buffer | undefined = await new Promise(
-      async (resolve, reject) => {
-        let rest = gpus;
-        for (let i = 0; i < gpus; i++) {
-          const randomName = (await getSecureRandomBytes(8)).toString("hex") + ".boc";
-          const path = `bocs/${randomName}`;
-          const command = `-g ${i} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
-
-          const procid = spawn(bin, command.split(" "), { stdio: "pipe" });
-          handlers.push(procid);
-
-          procid.on("exit", () => {
-            let mined: Buffer | undefined = undefined;
-            try {
-              const exists = fs.existsSync(path);
-              if (exists) {
-                mined = fs.readFileSync(path);
-                resolve(mined);
-                lastMinedSeed = seed;
-                fs.rmSync(path);
-                for (const handle of handlers) {
-                  handle.kill("SIGINT");
-                }
-              }
-            } catch (e) {
-              console.log("not mined", e);
-            } finally {
-              if (--rest === 0) {
-                resolve(undefined);
-              }
-            }
-          });
-        }
-      }
-    );
+    let mined: Buffer | undefined = undefined;
+    try {
+      mined = fs.readFileSync(path);
+      fs.rmSync(path);
+    } catch (e) {
+      // console.log(e);
+    }
 
     if (!mined) {
       console.log(`${new Date()}: not mined`, seed, i++);
-    }
-    if (mined) {
+    } else {
       const [newSeed] = await getPowInfo(
         liteClient,
         Address.parse(giverAddress)
@@ -306,6 +280,7 @@ const main = async () => {
         console.log("Mined already too late seed");
         continue;
       }
+
       console.log(`${new Date()}:     mined`, seed, i++);
       void sendMinedBoc(
         giverAddress,
