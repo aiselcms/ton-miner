@@ -4,7 +4,10 @@ import { TonClient4 } from '@ton/ton';
 import { LiteClient, LiteRoundRobinEngine, LiteSingleEngine } from 'ton-lite-client';
 import { Address, Cell, parseTuple, TupleReader } from '@ton/core';
 import { getSecureRandomBytes, mnemonicToWalletKey } from '@ton/crypto';
-import { execSync } from 'child_process';
+import {
+  spawn,
+  ChildProcess,
+} from "child_process";
 import { Wallets } from 'ton3-contracts';
 import * as ton3 from 'ton3-core';
 import fs from 'fs';
@@ -14,7 +17,7 @@ import { WalletTransfer } from 'ton3-contracts/dist/types/wallet-transfer';
 import dotenv from 'dotenv';
 
 /*
-tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100 --gpu-count 1
+tsc && node _mine_meredian.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100 --gpu-count 1
  */
 
 dotenv.config({ path: '.env' });
@@ -86,7 +89,7 @@ const delay = async (ms: number): Promise<void> => {
 let currentGiver = 0;
 let bestGiver: { address: string; coins: number } = { address: '', coins: 0 };
 const updateBestGivers = () => {
-  if (currentGiver + 1 <= givers.length) {
+  if (currentGiver + 1 < givers.length) {
     currentGiver++;
   } else {
     currentGiver = 0;
@@ -275,44 +278,65 @@ const main = async () => {
       continue;
     }
 
-    for (let gpuId = 0; gpuId < gpus; gpuId++) {
-      const randomName = (await getSecureRandomBytes(8)).toString('hex') + '.boc';
-      const path = `bocs/${randomName}`;
+    let handlers: ChildProcess[] = [];
 
-      const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+    const mined: Buffer | undefined = await new Promise(
+        async (resolve, reject) => {
+          let rest = gpus;
+          for (let i = 0; i < gpus; i++) {
+            const randomName =
+                (await getSecureRandomBytes(8)).toString("hex") + ".boc";
+            const path = `bocs/${randomName}`;
+            const command = `-g ${i} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} 999999999999999 ${giverAddress} ${path}`;
 
-      try {
-        execSync(command, { encoding: 'utf-8', stdio: 'pipe' });
-      } catch (e) {
-        console.log(e);
-      }
+            const procid = spawn(bin, command.split(" "), {stdio: "pipe"});
 
-      let mined: Buffer | undefined = undefined;
-      try {
-        mined = fs.readFileSync(path);
-        fs.rmSync(path);
-      } catch (e) {}
+            handlers.push(procid);
 
-      if (!mined) {
-        console.log(`${new Date()}: not mined`, seed, i++);
-      } else {
-        const [newSeed] = await getPowInfo(
-            liteClient,
-            Address.parse(giverAddress)
-        );
-        lastMinedSeed = seed;
-        if (newSeed !== seed) {
-          console.log('Mined already too late seed');
-          continue;
+            procid.on("exit", () => {
+              let mined: Buffer | undefined = undefined;
+              try {
+                const exists = fs.existsSync(path);
+                if (exists) {
+                  mined = fs.readFileSync(path);
+                  resolve(mined);
+                  lastMinedSeed = seed;
+                  fs.rmSync(path);
+                  for (const handle of handlers) {
+                    handle.kill("SIGINT");
+                  }
+                }
+              } catch (e) {
+                console.log("not mined", e);
+              } finally {
+                if (--rest === 0) {
+                  resolve(undefined);
+                }
+              }
+            });
+          }
         }
+    );
 
-        console.log(`${new Date()}:  mined`, seed, i++);
-        void sendMinedBoc(
-            giverAddress,
-            Cell.fromBoc(mined as Buffer)[0].asSlice().loadRef()
-        );
-        break;
+    if (!mined) {
+      console.log(`${new Date()}: not mined`, seed, i++);
+    } else {
+      const [newSeed] = await getPowInfo(
+          liteClient,
+          Address.parse(giverAddress)
+      );
+      lastMinedSeed = seed;
+      if (newSeed !== seed) {
+        console.log('Mined already too late seed');
+        continue;
       }
+
+      console.log(`${new Date()}:  mined`, seed, i++);
+      void sendMinedBoc(
+          giverAddress,
+          Cell.fromBoc(mined as Buffer)[0].asSlice().loadRef()
+      );
+      break;
     }
   }
 }

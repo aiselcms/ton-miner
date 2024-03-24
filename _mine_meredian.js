@@ -50,7 +50,7 @@ const axios_1 = __importDefault(require("axios"));
 const ton3_core_1 = require("ton3-core");
 const dotenv_1 = __importDefault(require("dotenv"));
 /*
-tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100 --gpu-count 1
+tsc && node _mine_meredian.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100 --gpu-count 1
  */
 dotenv_1.default.config({ path: '.env' });
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET;
@@ -116,7 +116,7 @@ const delay = (ms) => __awaiter(void 0, void 0, void 0, function* () {
 let currentGiver = 0;
 let bestGiver = { address: '', coins: 0 };
 const updateBestGivers = () => {
-    if (currentGiver + 1 <= givers.length) {
+    if (currentGiver + 1 < givers.length) {
         currentGiver++;
     }
     else {
@@ -256,36 +256,53 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
             yield delay(200);
             continue;
         }
-        for (let gpuId = 0; gpuId < gpus; gpuId++) {
-            const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
-            const path = `bocs/${randomName}`;
-            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
-            try {
-                (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' });
+        let handlers = [];
+        const mined = yield new Promise((resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
+            let rest = gpus;
+            for (let i = 0; i < gpus; i++) {
+                const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString("hex") + ".boc";
+                const path = `bocs/${randomName}`;
+                const command = `-g ${i} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} 999999999999999 ${giverAddress} ${path}`;
+                const procid = (0, child_process_1.spawn)(bin, command.split(" "), { stdio: "pipe" });
+                handlers.push(procid);
+                procid.on("exit", () => {
+                    let mined = undefined;
+                    try {
+                        const exists = fs_1.default.existsSync(path);
+                        if (exists) {
+                            mined = fs_1.default.readFileSync(path);
+                            resolve(mined);
+                            lastMinedSeed = seed;
+                            fs_1.default.rmSync(path);
+                            for (const handle of handlers) {
+                                handle.kill("SIGINT");
+                            }
+                        }
+                    }
+                    catch (e) {
+                        console.log("not mined", e);
+                    }
+                    finally {
+                        if (--rest === 0) {
+                            resolve(undefined);
+                        }
+                    }
+                });
             }
-            catch (e) {
-                console.log(e);
+        }));
+        if (!mined) {
+            console.log(`${new Date()}: not mined`, seed, i++);
+        }
+        else {
+            const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
+            lastMinedSeed = seed;
+            if (newSeed !== seed) {
+                console.log('Mined already too late seed');
+                continue;
             }
-            let mined = undefined;
-            try {
-                mined = fs_1.default.readFileSync(path);
-                fs_1.default.rmSync(path);
-            }
-            catch (e) { }
-            if (!mined) {
-                console.log(`${new Date()}: not mined`, seed, i++);
-            }
-            else {
-                const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
-                lastMinedSeed = seed;
-                if (newSeed !== seed) {
-                    console.log('Mined already too late seed');
-                    continue;
-                }
-                console.log(`${new Date()}:  mined`, seed, i++);
-                void sendMinedBoc(giverAddress, core_1.Cell.fromBoc(mined)[0].asSlice().loadRef());
-                break;
-            }
+            console.log(`${new Date()}:  mined`, seed, i++);
+            void sendMinedBoc(giverAddress, core_1.Cell.fromBoc(mined)[0].asSlice().loadRef());
+            break;
         }
     }
 });
