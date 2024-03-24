@@ -209,7 +209,7 @@ const sendMinedBoc = async (
     const transfers: WalletTransfer[] = [];
     transfers.push({
       destination: new ton3.Address(giverAddress),
-      amount: new ton3.Coins('0.04'),
+      amount: new ton3.Coins('0.05'),
       body: BOC.from(boc.toString()).root[0],
       mode: 3
     });
