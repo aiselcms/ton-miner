@@ -210,7 +210,7 @@ const sendMinedBoc = (giverAddress, boc) => __awaiter(void 0, void 0, void 0, fu
         const transfers = [];
         transfers.push({
             destination: new ton3.Address(giverAddress),
-            amount: new ton3.Coins('0.05'),
+            amount: new ton3.Coins('0.02'),
             body: ton3_core_1.BOC.from(boc.toString()).root[0],
             mode: 3
         });
