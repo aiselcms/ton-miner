@@ -259,9 +259,9 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
         for (let gpuId = 0; gpuId < gpus; gpuId++) {
             const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
             const path = `bocs/${randomName}`;
-            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} 999999999999999 ${giverAddress} ${path}`;
+            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
             try {
-                (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
+                (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' });
             }
             catch (e) {
                 console.log(e);
