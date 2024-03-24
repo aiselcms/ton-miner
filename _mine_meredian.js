@@ -37,7 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 const arg_1 = __importDefault(require("arg"));
-const _givers_1 = require("./_givers");
+const _givers_meredian_1 = require("./_givers_meredian");
 const ton_1 = require("@ton/ton");
 const ton_lite_client_1 = require("ton-lite-client");
 const core_1 = require("@ton/core");
@@ -63,7 +63,7 @@ const args = (0, arg_1.default)({
     '-c': String, // blockchain config
 });
 /* Выбор гиверов */
-let givers = _givers_1.givers10000;
+let givers = _givers_meredian_1.givers10000;
 if (args['--givers']) {
     const val = args['--givers'];
     const allowed = [100, 1000, 10000];
@@ -72,15 +72,15 @@ if (args['--givers']) {
     }
     switch (val) {
         case 100:
-            givers = _givers_1.givers100;
+            givers = _givers_meredian_1.givers100;
             console.log('Using givers 100');
             break;
         case 1000:
-            givers = _givers_1.givers1000;
+            givers = _givers_meredian_1.givers1000;
             console.log('Using givers 1 000');
             break;
         case 10000:
-            givers = _givers_1.givers10000;
+            givers = _givers_meredian_1.givers10000;
             console.log('Using givers 10 000');
             break;
     }
@@ -113,9 +113,16 @@ const delay = (ms) => __awaiter(void 0, void 0, void 0, function* () {
         setTimeout(resolve, ms);
     });
 });
+let currentGiver = 0;
 let bestGiver = { address: '', coins: 0 };
 const updateBestGivers = () => {
-    const giver = givers[Math.floor(Math.random() * givers.length)];
+    if (currentGiver + 1 <= givers.length) {
+        currentGiver++;
+    }
+    else {
+        currentGiver = 0;
+    }
+    const giver = givers[currentGiver];
     bestGiver = {
         address: giver.address,
         coins: giver.reward,

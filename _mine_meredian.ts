@@ -1,5 +1,5 @@
 import arg from 'arg';
-import { givers100, givers1000, givers10000 } from './_givers';
+import { givers100, givers1000, givers10000 } from './_givers_meredian';
 import { TonClient4 } from '@ton/ton';
 import { LiteClient, LiteRoundRobinEngine, LiteSingleEngine } from 'ton-lite-client';
 import { Address, Cell, parseTuple, TupleReader } from '@ton/core';
@@ -83,9 +83,15 @@ const delay = async (ms: number): Promise<void> => {
   });
 };
 
+let currentGiver = 0;
 let bestGiver: { address: string; coins: number } = { address: '', coins: 0 };
 const updateBestGivers = () => {
-  const giver = givers[Math.floor(Math.random() * givers.length)];
+  if (currentGiver + 1 <= givers.length) {
+    currentGiver++;
+  } else {
+    currentGiver = 0;
+  }
+  const giver = givers[currentGiver];
   bestGiver = {
       address: giver.address,
       coins: giver.reward,
