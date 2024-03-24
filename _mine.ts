@@ -13,6 +13,10 @@ import { BOC } from "ton3-core";
 import { WalletTransfer } from "ton3-contracts/dist/types/wallet-transfer";
 import dotenv from "dotenv";
 
+/*
+tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100
+ */
+
 dotenv.config({ path: ".env" });
 
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET as string;

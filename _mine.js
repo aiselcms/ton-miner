@@ -49,6 +49,9 @@ const fs_1 = __importDefault(require("fs"));
 const axios_1 = __importDefault(require("axios"));
 const ton3_core_1 = require("ton3-core");
 const dotenv_1 = __importDefault(require("dotenv"));
+/*
+tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100
+ */
 dotenv_1.default.config({ path: ".env" });
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET;
 const MY_SEED = process.env.MY_SEED;
