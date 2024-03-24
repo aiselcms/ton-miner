@@ -50,7 +50,7 @@ const axios_1 = __importDefault(require("axios"));
 const ton3_core_1 = require("ton3-core");
 const dotenv_1 = __importDefault(require("dotenv"));
 /*
-tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100
+tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100 --gpu-count 1
  */
 dotenv_1.default.config({ path: '.env' });
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET;
@@ -58,7 +58,6 @@ const MY_SEED = process.env.MY_SEED;
 const args = (0, arg_1.default)({
     '--givers': Number,
     '--bin': String,
-    '--gpu': Number,
     '--gpu-count': Number,
     '--timeout': Number,
     '-c': String, // blockchain config
@@ -106,7 +105,7 @@ if (args['--bin']) {
 console.log('Using bin', bin);
 /* Количества GPU и таймаут */
 const gpus = args['--gpu-count'] || 1;
-const timeout = (_a = args['--timeout']) !== null && _a !== void 0 ? _a : 5000;
+const timeout = (_a = args['--timeout']) !== null && _a !== void 0 ? _a : 5;
 console.log('Using GPUs count', gpus);
 console.log('Using timeout', timeout);
 const delay = (ms) => __awaiter(void 0, void 0, void 0, function* () {
@@ -201,72 +200,72 @@ const getPowInfo = (liteClient, address) => __awaiter(void 0, void 0, void 0, fu
 });
 const sendMinedBoc = (giverAddress, boc) => __awaiter(void 0, void 0, void 0, function* () {
     var _b;
-    const walletKeys = yield (0, crypto_1.mnemonicToWalletKey)(MY_SEED.split(','));
-    const walletHighload = new ton3_contracts_1.Wallets.ContractHighloadWalletV2({
-        workchain: 0,
-        publicKey: walletKeys.publicKey,
-        subwalletId: 698983191,
-    });
-    const transfers = [];
-    transfers.push({
-        destination: new ton3.Address(giverAddress),
-        amount: new ton3.Coins('0.05'),
-        body: ton3_core_1.BOC.from(boc.toString()).root[0],
-        mode: 3
-    });
-    const payments = walletHighload
-        .createTransferMessage(transfers)
-        .sign(walletKeys.secretKey);
-    const liteClient = yield getLiteClient((_b = args['-c']) !== null && _b !== void 0 ? _b : 'https://ton-blockchain.github.io/global.config.json');
     try {
-        yield liteClient.sendMessage(Buffer.from(new ton3_core_1.BOC([payments]).toBytes()));
-    }
-    catch (e) {
-        console.log(e);
-    }
-});
-let go = true;
-let i = 0;
-let lastMinedSeed = BigInt(0);
-const main = () => __awaiter(void 0, void 0, void 0, function* () {
-    var _c;
-    console.log('Using LiteServer API');
-    const liteClient = yield getLiteClient((_c = args['-c']) !== null && _c !== void 0 ? _c : 'https://ton-blockchain.github.io/global.config.json');
-    updateBestGivers();
-    setInterval(() => {
-        updateBestGivers();
-    }, 1000);
-    while (go) {
-        const giverAddress = bestGiver.address;
-        const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
-        const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
-        const path = `bocs/${randomName}`;
-        const command = `${bin} -g 0 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+        const walletKeys = yield (0, crypto_1.mnemonicToWalletKey)(MY_SEED.split(','));
+        const walletHighload = new ton3_contracts_1.Wallets.ContractHighloadWalletV2({
+            workchain: 0,
+            publicKey: walletKeys.publicKey,
+            subwalletId: 698983191,
+        });
+        const transfers = [];
+        transfers.push({
+            destination: new ton3.Address(giverAddress),
+            amount: new ton3.Coins('0.01'),
+            body: ton3_core_1.BOC.from(boc.toString()).root[0],
+            mode: 3
+        });
+        const payments = walletHighload
+            .createTransferMessage(transfers)
+            .sign(walletKeys.secretKey);
+        const liteClient = yield getLiteClient((_b = args['-c']) !== null && _b !== void 0 ? _b : 'https://ton-blockchain.github.io/global.config.json');
         try {
-            (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
+            yield liteClient.sendMessage(Buffer.from(new ton3_core_1.BOC([payments]).toBytes()));
         }
         catch (e) {
             console.log(e);
         }
-        let mined = undefined;
-        try {
-            mined = fs_1.default.readFileSync(path);
-            fs_1.default.rmSync(path);
-        }
-        catch (e) {
-            // console.log(e);
-        }
-        if (!mined) {
-            console.log(`${new Date()}: not mined`, seed, i++);
-        }
-        else {
-            const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
-            if (newSeed !== seed) {
-                console.log('Mined already too late seed');
-                continue;
+    }
+    catch (e) { }
+});
+let go = true;
+let i = 0;
+const main = () => __awaiter(void 0, void 0, void 0, function* () {
+    var _c;
+    console.log('Using LiteServer API');
+    const liteClient = yield getLiteClient((_c = args['-c']) !== null && _c !== void 0 ? _c : 'https://ton-blockchain.github.io/global.config.json');
+    while (go) {
+        updateBestGivers();
+        const giverAddress = bestGiver.address;
+        const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
+        for (let gpuId = 0; gpuId < gpus; gpuId++) {
+            const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
+            const path = `bocs/${randomName}`;
+            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+            try {
+                (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
             }
-            console.log(`${new Date()}:  mined`, seed, i++);
-            void sendMinedBoc(giverAddress, core_1.Cell.fromBoc(mined)[0].asSlice().loadRef());
+            catch (e) {
+                console.log(e);
+            }
+            let mined = undefined;
+            try {
+                mined = fs_1.default.readFileSync(path);
+                fs_1.default.rmSync(path);
+            }
+            catch (e) { }
+            if (!mined) {
+                console.log(`${new Date()}: not mined`, seed, i++);
+            }
+            else {
+                const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
+                if (newSeed !== seed) {
+                    console.log('Mined already too late seed');
+                    continue;
+                }
+                console.log(`${new Date()}:  mined`, seed, i++);
+                void sendMinedBoc(giverAddress, core_1.Cell.fromBoc(mined)[0].asSlice().loadRef());
+                break;
+            }
         }
     }
 });
