@@ -242,6 +242,7 @@ const sendMinedBoc = (giverAddress, boc) => __awaiter(void 0, void 0, void 0, fu
 });
 let go = true;
 let i = 0;
+let lastMinedSeed = BigInt(0);
 const main = () => __awaiter(void 0, void 0, void 0, function* () {
     var _c;
     console.log('Using LiteServer API');
@@ -250,10 +251,15 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
         updateBestGivers();
         const giverAddress = bestGiver.address;
         const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
+        if (seed === lastMinedSeed) {
+            updateBestGivers();
+            yield delay(200);
+            continue;
+        }
         for (let gpuId = 0; gpuId < gpus; gpuId++) {
             const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
             const path = `bocs/${randomName}`;
-            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+            const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} 999999999999999 ${giverAddress} ${path}`;
             try {
                 (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
             }
@@ -271,6 +277,7 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
             }
             else {
                 const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
+                lastMinedSeed = seed;
                 if (newSeed !== seed) {
                     console.log('Mined already too late seed');
                     continue;
