@@ -254,6 +254,7 @@ const sendMinedBoc = async (
 
 let go = true;
 let i = 0;
+let lastMinedSeed: bigint = BigInt(0);
 const main = async () => {
   console.log('Using LiteServer API');
   const liteClient = await getLiteClient(
@@ -268,11 +269,17 @@ const main = async () => {
         Address.parse(giverAddress)
     );
 
+    if (seed === lastMinedSeed) {
+      updateBestGivers();
+      await delay(200);
+      continue;
+    }
+
     for (let gpuId = 0; gpuId < gpus; gpuId++) {
       const randomName = (await getSecureRandomBytes(8)).toString('hex') + '.boc';
       const path = `bocs/${randomName}`;
 
-      const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+      const command = `${bin} -g ${gpuId} -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} 999999999999999 ${giverAddress} ${path}`;
 
       try {
         execSync(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
@@ -293,6 +300,7 @@ const main = async () => {
             liteClient,
             Address.parse(giverAddress)
         );
+        lastMinedSeed = seed;
         if (newSeed !== seed) {
           console.log('Mined already too late seed');
           continue;
