@@ -253,7 +253,7 @@ const main = async () => {
     const randomName = (await getSecureRandomBytes(8)).toString('hex') + '.boc';
     const path = `bocs/${randomName}`;
 
-    const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
+    const command = `${bin} -g 0 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
 
     try {
       execSync(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
