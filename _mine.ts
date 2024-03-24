@@ -1,82 +1,82 @@
-import arg from "arg";
-import { givers100, givers1000, givers10000 } from "./_givers";
-import { TonClient4 } from "@ton/ton";
-import { LiteClient, LiteRoundRobinEngine, LiteSingleEngine } from "ton-lite-client";
-import { Address, Cell, parseTuple, TupleReader } from "@ton/core";
-import { getSecureRandomBytes, mnemonicToWalletKey } from "@ton/crypto";
-import { execSync } from "child_process";
+import arg from 'arg';
+import { givers100, givers1000, givers10000 } from './_givers';
+import { TonClient4 } from '@ton/ton';
+import { LiteClient, LiteRoundRobinEngine, LiteSingleEngine } from 'ton-lite-client';
+import { Address, Cell, parseTuple, TupleReader } from '@ton/core';
+import { getSecureRandomBytes, mnemonicToWalletKey } from '@ton/crypto';
+import { execSync } from 'child_process';
 import { Wallets } from 'ton3-contracts';
 import * as ton3 from 'ton3-core';
-import fs from "fs";
-import axios from "axios";
-import { BOC } from "ton3-core";
-import { WalletTransfer } from "ton3-contracts/dist/types/wallet-transfer";
-import dotenv from "dotenv";
+import fs from 'fs';
+import axios from 'axios';
+import { BOC } from 'ton3-core';
+import { WalletTransfer } from 'ton3-contracts/dist/types/wallet-transfer';
+import dotenv from 'dotenv';
 
 /*
 tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100
  */
 
-dotenv.config({ path: ".env" });
+dotenv.config({ path: '.env' });
 
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET as string;
 const MY_SEED = process.env.MY_SEED as string;
 
 const args = arg({
-  "--givers": Number, // 100 1000 10000
-  "--bin": String, // cuda, opencl or path to miner
-  "--gpu": Number, // gpu id, default 0
-  "--gpu-count": Number, // GPU COUNT!!!
-  "--timeout": Number, // Timeout for mining in seconds
-  "-c": String, // blockchain config
+  '--givers': Number, // 100 1000 10000
+  '--bin': String, // cuda, opencl or path to miner
+  '--gpu': Number, // gpu id, default 0
+  '--gpu-count': Number, // GPU COUNT!!!
+  '--timeout': Number, // Timeout for mining in seconds
+  '-c': String, // blockchain config
 });
 
 /* Выбор гиверов */
 let givers = givers10000;
-if (args["--givers"]) {
-  const val = args["--givers"];
+if (args['--givers']) {
+  const val = args['--givers'];
   const allowed = [100, 1000, 10000];
   if (!allowed.includes(val)) {
-    throw new Error("Invalid --givers argument");
+    throw new Error('Invalid --givers argument');
   }
   switch (val) {
     case 100:
       givers = givers100;
-      console.log("Using givers 100");
+      console.log('Using givers 100');
       break;
     case 1000:
       givers = givers1000;
-      console.log("Using givers 1 000");
+      console.log('Using givers 1 000');
       break;
     case 10000:
       givers = givers10000;
-      console.log("Using givers 10 000");
+      console.log('Using givers 10 000');
       break;
   }
 } else {
-  console.log("Using givers 10 000");
+  console.log('Using givers 10 000');
 }
 
 /* Выбор бинарника */
-let bin = ".\\pow-miner-cuda.exe";
-if (args["--bin"]) {
-  const argBin = args["--bin"];
-  if (argBin === "cuda") {
-    bin = ".\\pow-miner-cuda.exe";
-  } else if (argBin === "opencl" || argBin === "amd") {
-    bin = ".\\pow-miner-opencl.exe";
+let bin = '.\\pow-miner-cuda.exe';
+if (args['--bin']) {
+  const argBin = args['--bin'];
+  if (argBin === 'cuda') {
+    bin = '.\\pow-miner-cuda.exe';
+  } else if (argBin === 'opencl' || argBin === 'amd') {
+    bin = '.\\pow-miner-opencl.exe';
   } else {
     bin = argBin;
   }
 }
-console.log("Using bin", bin);
+console.log('Using bin', bin);
 
 /* Количества GPU и таймаут */
-const gpus = args["--gpu-count"] || 1;
-const timeout = args["--timeout"] ?? 5000;
+const gpus = args['--gpu-count'] || 1;
+const timeout = args['--timeout'] ?? 5000;
 
-console.log("Using GPUs count", gpus);
-console.log("Using timeout", timeout);
+console.log('Using GPUs count', gpus);
+console.log('Using timeout', timeout);
 
 const delay = async (ms: number): Promise<void> => {
   return new Promise((resolve) => {
@@ -84,7 +84,7 @@ const delay = async (ms: number): Promise<void> => {
   });
 };
 
-let bestGiver: { address: string; coins: number } = { address: "", coins: 0 };
+let bestGiver: { address: string; coins: number } = { address: '', coins: 0 };
 const updateBestGivers = () => {
   const giver = givers[Math.floor(Math.random() * givers.length)];
   bestGiver = {
@@ -107,8 +107,8 @@ const callForSuccess = async <T extends (...args: any[]) => any>(
   attempts = 50,
   delayMs = 100
 ): Promise<ReturnType<T>> => {
-  if (typeof toCall !== "function") {
-    throw new Error("unknown input");
+  if (typeof toCall !== 'function') {
+    throw new Error('unknown input');
   }
 
   let i = 0;
@@ -123,7 +123,7 @@ const callForSuccess = async <T extends (...args: any[]) => any>(
       await delay(delayMs);
     }
   }
-  console.log("error after attempts", i);
+  console.log('error after attempts', i);
   throw lastError;
 }
 
@@ -166,7 +166,7 @@ const getPowInfo = async (
   if (liteClient instanceof TonClient4) {
     const lastInfo = await callForSuccess(() => liteClient.getLastBlock());
     const powInfo = await callForSuccess(() =>
-      liteClient.runMethod(lastInfo.last.seqno, address, "get_pow_params", [])
+      liteClient.runMethod(lastInfo.last.seqno, address, 'get_pow_params', [])
     );
 
     const reader = new TupleReader(powInfo.result);
@@ -179,7 +179,7 @@ const getPowInfo = async (
     const lastInfo = await liteClient.getMasterchainInfo();
     const powInfo = await liteClient.runMethod(
       address,
-      "get_pow_params",
+      'get_pow_params',
       Buffer.from([]),
       lastInfo.last
     );
@@ -193,7 +193,7 @@ const getPowInfo = async (
 
     return [seed, complexity, iterations];
   }
-  throw new Error("invalid client");
+  throw new Error('invalid client');
 };
 
 const sendMinedBoc = async (
@@ -219,7 +219,7 @@ const sendMinedBoc = async (
       .sign(walletKeys.secretKey);
 
   const liteClient = await getLiteClient(
-      args["-c"] ?? "https://ton-blockchain.github.io/global.config.json"
+      args['-c'] ?? 'https://ton-blockchain.github.io/global.config.json'
   );
   try {
     await liteClient.sendMessage(Buffer.from(new BOC([payments]).toBytes()));
@@ -232,9 +232,9 @@ let go = true;
 let i = 0;
 let lastMinedSeed: bigint = BigInt(0);
 const main = async () => {
-  console.log("Using LiteServer API");
+  console.log('Using LiteServer API');
   const liteClient = await getLiteClient(
-      args["-c"] ?? "https://ton-blockchain.github.io/global.config.json"
+      args['-c'] ?? 'https://ton-blockchain.github.io/global.config.json'
   );
 
   updateBestGivers();
@@ -250,13 +250,13 @@ const main = async () => {
         Address.parse(giverAddress)
     );
 
-    const randomName = (await getSecureRandomBytes(8)).toString("hex") + ".boc";
+    const randomName = (await getSecureRandomBytes(8)).toString('hex') + '.boc';
     const path = `bocs/${randomName}`;
 
     const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
 
     try {
-      execSync(command, { encoding: "utf-8", stdio: "pipe" }); // the default is 'buffer'
+      execSync(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
     } catch (e) {
       console.log(e);
     }
@@ -277,11 +277,11 @@ const main = async () => {
         Address.parse(giverAddress)
       );
       if (newSeed !== seed) {
-        console.log("Mined already too late seed");
+        console.log('Mined already too late seed');
         continue;
       }
 
-      console.log(`${new Date()}:     mined`, seed, i++);
+      console.log(`${new Date()}:  mined`, seed, i++);
       void sendMinedBoc(
         giverAddress,
         Cell.fromBoc(mined as Buffer)[0].asSlice().loadRef()

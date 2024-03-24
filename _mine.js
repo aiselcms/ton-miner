@@ -52,69 +52,69 @@ const dotenv_1 = __importDefault(require("dotenv"));
 /*
 tsc && node _mine.js --bin ./pow-miner-cuda -c https://static.ton-rocket.com/private-config.json --givers 100
  */
-dotenv_1.default.config({ path: ".env" });
+dotenv_1.default.config({ path: '.env' });
 const MINE_TO_WALLET = process.env.MINE_TO_WALLET;
 const MY_SEED = process.env.MY_SEED;
 const args = (0, arg_1.default)({
-    "--givers": Number,
-    "--bin": String,
-    "--gpu": Number,
-    "--gpu-count": Number,
-    "--timeout": Number,
-    "-c": String, // blockchain config
+    '--givers': Number,
+    '--bin': String,
+    '--gpu': Number,
+    '--gpu-count': Number,
+    '--timeout': Number,
+    '-c': String, // blockchain config
 });
 /* Выбор гиверов */
 let givers = _givers_1.givers10000;
-if (args["--givers"]) {
-    const val = args["--givers"];
+if (args['--givers']) {
+    const val = args['--givers'];
     const allowed = [100, 1000, 10000];
     if (!allowed.includes(val)) {
-        throw new Error("Invalid --givers argument");
+        throw new Error('Invalid --givers argument');
     }
     switch (val) {
         case 100:
             givers = _givers_1.givers100;
-            console.log("Using givers 100");
+            console.log('Using givers 100');
             break;
         case 1000:
             givers = _givers_1.givers1000;
-            console.log("Using givers 1 000");
+            console.log('Using givers 1 000');
             break;
         case 10000:
             givers = _givers_1.givers10000;
-            console.log("Using givers 10 000");
+            console.log('Using givers 10 000');
             break;
     }
 }
 else {
-    console.log("Using givers 10 000");
+    console.log('Using givers 10 000');
 }
 /* Выбор бинарника */
-let bin = ".\\pow-miner-cuda.exe";
-if (args["--bin"]) {
-    const argBin = args["--bin"];
-    if (argBin === "cuda") {
-        bin = ".\\pow-miner-cuda.exe";
+let bin = '.\\pow-miner-cuda.exe';
+if (args['--bin']) {
+    const argBin = args['--bin'];
+    if (argBin === 'cuda') {
+        bin = '.\\pow-miner-cuda.exe';
     }
-    else if (argBin === "opencl" || argBin === "amd") {
-        bin = ".\\pow-miner-opencl.exe";
+    else if (argBin === 'opencl' || argBin === 'amd') {
+        bin = '.\\pow-miner-opencl.exe';
     }
     else {
         bin = argBin;
     }
 }
-console.log("Using bin", bin);
+console.log('Using bin', bin);
 /* Количества GPU и таймаут */
-const gpus = args["--gpu-count"] || 1;
-const timeout = (_a = args["--timeout"]) !== null && _a !== void 0 ? _a : 5000;
-console.log("Using GPUs count", gpus);
-console.log("Using timeout", timeout);
+const gpus = args['--gpu-count'] || 1;
+const timeout = (_a = args['--timeout']) !== null && _a !== void 0 ? _a : 5000;
+console.log('Using GPUs count', gpus);
+console.log('Using timeout', timeout);
 const delay = (ms) => __awaiter(void 0, void 0, void 0, function* () {
     return new Promise((resolve) => {
         setTimeout(resolve, ms);
     });
 });
-let bestGiver = { address: "", coins: 0 };
+let bestGiver = { address: '', coins: 0 };
 const updateBestGivers = () => {
     const giver = givers[Math.floor(Math.random() * givers.length)];
     bestGiver = {
@@ -130,8 +130,8 @@ const intToIP = (int) => {
     return `${part4}.${part3}.${part2}.${part1}`;
 };
 const callForSuccess = (toCall, attempts = 50, delayMs = 100) => __awaiter(void 0, void 0, void 0, function* () {
-    if (typeof toCall !== "function") {
-        throw new Error("unknown input");
+    if (typeof toCall !== 'function') {
+        throw new Error('unknown input');
     }
     let i = 0;
     let lastError;
@@ -145,7 +145,7 @@ const callForSuccess = (toCall, attempts = 50, delayMs = 100) => __awaiter(void 
             yield delay(delayMs);
         }
     }
-    console.log("error after attempts", i);
+    console.log('error after attempts', i);
     throw lastError;
 });
 let lc = undefined;
@@ -179,7 +179,7 @@ const getLiteClient = (_configUrl) => __awaiter(void 0, void 0, void 0, function
 const getPowInfo = (liteClient, address) => __awaiter(void 0, void 0, void 0, function* () {
     if (liteClient instanceof ton_1.TonClient4) {
         const lastInfo = yield callForSuccess(() => liteClient.getLastBlock());
-        const powInfo = yield callForSuccess(() => liteClient.runMethod(lastInfo.last.seqno, address, "get_pow_params", []));
+        const powInfo = yield callForSuccess(() => liteClient.runMethod(lastInfo.last.seqno, address, 'get_pow_params', []));
         const reader = new core_1.TupleReader(powInfo.result);
         const seed = reader.readBigNumber();
         const complexity = reader.readBigNumber();
@@ -188,7 +188,7 @@ const getPowInfo = (liteClient, address) => __awaiter(void 0, void 0, void 0, fu
     }
     else if (liteClient instanceof ton_lite_client_1.LiteClient) {
         const lastInfo = yield liteClient.getMasterchainInfo();
-        const powInfo = yield liteClient.runMethod(address, "get_pow_params", Buffer.from([]), lastInfo.last);
+        const powInfo = yield liteClient.runMethod(address, 'get_pow_params', Buffer.from([]), lastInfo.last);
         const powStack = core_1.Cell.fromBase64(powInfo.result);
         const stack = (0, core_1.parseTuple)(powStack);
         const reader = new core_1.TupleReader(stack);
@@ -197,7 +197,7 @@ const getPowInfo = (liteClient, address) => __awaiter(void 0, void 0, void 0, fu
         const iterations = reader.readBigNumber();
         return [seed, complexity, iterations];
     }
-    throw new Error("invalid client");
+    throw new Error('invalid client');
 });
 const sendMinedBoc = (giverAddress, boc) => __awaiter(void 0, void 0, void 0, function* () {
     var _b;
@@ -217,7 +217,7 @@ const sendMinedBoc = (giverAddress, boc) => __awaiter(void 0, void 0, void 0, fu
     const payments = walletHighload
         .createTransferMessage(transfers)
         .sign(walletKeys.secretKey);
-    const liteClient = yield getLiteClient((_b = args["-c"]) !== null && _b !== void 0 ? _b : "https://ton-blockchain.github.io/global.config.json");
+    const liteClient = yield getLiteClient((_b = args['-c']) !== null && _b !== void 0 ? _b : 'https://ton-blockchain.github.io/global.config.json');
     try {
         yield liteClient.sendMessage(Buffer.from(new ton3_core_1.BOC([payments]).toBytes()));
     }
@@ -230,8 +230,8 @@ let i = 0;
 let lastMinedSeed = BigInt(0);
 const main = () => __awaiter(void 0, void 0, void 0, function* () {
     var _c;
-    console.log("Using LiteServer API");
-    const liteClient = yield getLiteClient((_c = args["-c"]) !== null && _c !== void 0 ? _c : "https://ton-blockchain.github.io/global.config.json");
+    console.log('Using LiteServer API');
+    const liteClient = yield getLiteClient((_c = args['-c']) !== null && _c !== void 0 ? _c : 'https://ton-blockchain.github.io/global.config.json');
     updateBestGivers();
     setInterval(() => {
         updateBestGivers();
@@ -239,11 +239,11 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
     while (go) {
         const giverAddress = bestGiver.address;
         const [seed, complexity, iterations] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
-        const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString("hex") + ".boc";
+        const randomName = (yield (0, crypto_1.getSecureRandomBytes)(8)).toString('hex') + '.boc';
         const path = `bocs/${randomName}`;
         const command = `${bin} -g 1 -F 128 -t ${timeout} ${MINE_TO_WALLET} ${seed} ${complexity} ${iterations} ${giverAddress} ${path}`;
         try {
-            (0, child_process_1.execSync)(command, { encoding: "utf-8", stdio: "pipe" }); // the default is 'buffer'
+            (0, child_process_1.execSync)(command, { encoding: 'utf-8', stdio: 'pipe' }); // the default is 'buffer'
         }
         catch (e) {
             console.log(e);
@@ -262,10 +262,10 @@ const main = () => __awaiter(void 0, void 0, void 0, function* () {
         else {
             const [newSeed] = yield getPowInfo(liteClient, core_1.Address.parse(giverAddress));
             if (newSeed !== seed) {
-                console.log("Mined already too late seed");
+                console.log('Mined already too late seed');
                 continue;
             }
-            console.log(`${new Date()}:     mined`, seed, i++);
+            console.log(`${new Date()}:  mined`, seed, i++);
             void sendMinedBoc(giverAddress, core_1.Cell.fromBoc(mined)[0].asSlice().loadRef());
         }
     }
